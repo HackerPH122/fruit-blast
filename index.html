@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Fruit Blast by Vince</title>
+<meta property="og:title" content="Fruit Blast - Dulaa akong game!">
+<meta property="og:description" content="Ako ra nagbuhat ani! Testingi!">
+<link rel="manifest" href="manifest.json">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#FFF8E1;font-family:sans-serif;display:flex;flex-direction:column;align-items:center;overflow-x:hidden;touch-action:none}
+#startScreen{position:fixed;inset:0;background:#FF6F00;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:200;color:white;text-align:center;padding:20px}
+.btn{padding:18px 45px;font-size:22px;font-weight:bold;border:none;border-radius:30px;cursor:pointer;margin:10px}
+.btn-start{background:white;color:#FF6F00}
+.btn-restart{background:#FF6F00;color:white}
+#dashboard{background:white;width:92%;max-width:360px;border-radius:15px;padding:12px 18px;margin:10px auto;display:flex;justify-content:space-between;box-shadow:0 4px 10px rgba(0,0,0,0.1)}
+.dash-value{font-size:22px;font-weight:bold;color:#FF6F00}
+#boardWrapper{width:92%;max-width:360px;margin:0 auto}
+#board{display:grid;grid-template-columns:repeat(8,1fr);width:100%;aspect-ratio:1/1;background:#FFE0B2;border:4px solid #FF6F00;border-radius:12px;padding:3px;gap:3px}
+.cell{width:100%;aspect-ratio:1/1;border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:clamp(10px,3.5vw,16px)}
+.cell.empty{background:#FFF3E0;border:1px solid #FFCC80}
+.cell.filled{color:white}
+.cell.preview{background:#A5D6A7!important;border:2px dashed #4CAF50}
+#pieces{display:flex;justify-content:center;gap:15px;margin:15px;width:100%}
+.piece{background:white;border:3px solid #FF6F00;border-radius:15px;padding:15px;cursor:grab;min-width:90px;min-height:90px;display:flex;align-items:center;justify-content:center;flex-direction:column;touch-action:none;user-select:none}
+.piece.dragging{opacity:0.2}
+.dot{width:18px;height:18px;border-radius:4px;pointer-events:none}
+.dot.empty{background:transparent}
+.row{display:flex;gap:2px;pointer-events:none}
+#ghost{position:fixed;pointer-events:none;z-index:150;display:none;opacity:0.9}
+#gameOver{position:fixed;inset:0;background:rgba(0,0,0,0.85);display:none;flex-direction:column;align-items:center;justify-content:center;z-index:90;color:white;text-align:center}
+#gameOver.show{display:flex}
+#voiceText{position:fixed;top:40%;left:50%;transform:translate(-50%,-50%);font-size:26px;font-weight:bold;color:#FF6F00;background:white;padding:10px 20px;border-radius:20px;display:none;z-index:80;box-shadow:0 4px 20px rgba(0,0,0,0.3)}
+</style>
+</head>
+<body>
+<div id="startScreen">
+<h1 style="font-size:48px">FRUIT<br>BLAST</h1>
+<p style="margin:15px">By Vince - PLAYER CONTROL!</p>
+<button class="btn btn-start" onclick="startGame()">PLAY NA BAI!</button>
+<p style="margin-top:10px">Best: <span id="bestStart">0</span></p>
+</div>
+<div id="dashboard">
+<div><small>SCORE</small><div class="dash-value" id="sc">0</div></div>
+<div><small>BEST</small><div class="dash-value" id="best">0</div></div>
+<div><small>MOVES</small><div class="dash-value" id="moves">0</div></div>
+</div>
+<div id="boardWrapper"><div id="board"></div></div>
+<p style="margin:10px;color:#FF6F00;font-weight:bold;text-align:center">I-DRAG EXACT ASA NIMO GUSTO!</p>
+<div id="pieces"></div>
+<div id="ghost"></div>
+<div id="voiceText"></div>
+<div id="gameOver">
+<h2 style="font-size:40px">GAME OVER!</h2>
+<p style="font-size:24px;margin:15px">Score: <span id="finalScore">0</span></p>
+<button class="btn btn-restart" onclick="resetGame()">DULA ULI</button>
+<button class="btn btn-start" onclick="showMenu()" style="color:#FF6F00">MENU</button>
+</div>
+<script>
+let board,score=0,moves=0,sel=null,pieces=[],best=localStorage.getItem('fruitBest')||0;
+let ghost=null,previewPos=null;
+const fruits=[{n:'A',c:'#FF5252'},{n:'L',c:'#FFEB3B',tc:'#333'},{n:'G',c:'#9C27B0'},{n:'W',c:'#4CAF50'},{n:'S',c:'#FF4081'}];
+const shapes=[[[1]],[[1,1]],[[1,1,1]],[[1,1],[1,0]],[[1,1,1],[0,1,0]],[[1,1,0],[0,1,1]],[[1,1],[1,1]]];
+const msgs=["Great!","Amazing!","Wow!","Perfect!"];
+document.getElementById('best').textContent=best;
+document.getElementById('bestStart').textContent=best;
+function speak(t){if('speechSynthesis' in window){speechSynthesis.cancel();let u=new SpeechSynthesisUtterance(t);u.lang='en-US';u.rate=1.1;speechSynthesis.speak(u);}let vt=document.getElementById('voiceText');vt.textContent=t;vt.style.display='block';setTimeout(()=>vt.style.display='none',800);}
+function startGame(){document.getElementById('startScreen').style.display='none';speak("Your control!");resetGame();}
+function showMenu(){document.getElementById('gameOver').classList.remove('show');document.getElementById('startScreen').style.display='flex';}
+function resetGame(){board=Array(8).fill(0).map(()=>Array(8).fill(null));score=0;moves=0;sel=null;pieces=[];previewPos=null;document.getElementById('sc').textContent=0;document.getElementById('moves').textContent=0;draw();genPieces();document.getElementById('gameOver').classList.remove('show');}
+function draw(){let b=document.getElementById('board');b.innerHTML='';for(let r=0;r<8;r++)for(let c=0;c<8;c++){let d=document.createElement('div');d.className='cell '+(board[r][c]?'filled':'empty');d.dataset.r=r;d.dataset.c=c;let v=board[r][c];if(v){d.style.background=v.c;d.textContent=v.n;if(v.tc)d.style.color=v.tc;}b.appendChild(d);}if(previewPos&&sel){for(let y=0;y<sel.s.length;y++)for(let x=0;x<sel.s[y].length;x++)if(sel.s[y][x]){let rr=previewPos.r+y,cc=previewPos.c+x;if(rr>=0&&rr<8&&cc>=0&&cc<8&&!board[rr][cc]){let cell=document.querySelector(`.cell[data-r="${rr}"][data-c="${cc}"]`);if(cell)cell.classList.add('preview');}}}}
+function genPieces(){pieces=[];let p=document.getElementById('pieces');p.innerHTML='';for(let i=0;i<3;i++){let sh=shapes[Math.floor(Math.random()*shapes.length)];let fr=fruits[Math.floor(Math.random()*fruits.length)];let id='p_'+Date.now()+'_'+i;pieces.push({s:sh,f:fr,id:id});let div=document.createElement('div');div.className='piece';div.id=id;sh.forEach(row=>{let rowDiv=document.createElement('div');rowDiv.className='row';row.forEach(v=>{let dot=document.createElement('div');dot.className='dot '+(v?'':'empty');if(v)dot.style.background=fr.c;rowDiv.appendChild(dot);});div.appendChild(rowDiv);});div.addEventListener('touchstart',e=>startDrag(e,id),{passive:false});div.addEventListener('mousedown',e=>startDrag(e,id));p.appendChild(div);}checkGameOver();}
+function startDrag(e,id){e.preventDefault();sel=pieces.find(p=>p.id==id);let div=document.getElementById(id);div.classList.add('dragging');ghost=document.getElementById('ghost');ghost.innerHTML=div.innerHTML;ghost.style.display='flex';ghost.style.flexDirection='column';ghost.style.background='white';ghost.style.border='3px solid #FF6F00';ghost.style.borderRadius='15px';ghost.style.padding='15px';ghost.style.left='50%';ghost.style.top='80%';document.addEventListener('touchmove',onMove,{passive:false});document.addEventListener('touchend',onEnd);document.addEventListener('mousemove',onMove);document.addEventListener('mouseup',onEnd);}
+function onMove(e){e.preventDefault();let touch=e.touches?e.touches[0]:e;let x=touch.clientX,y=touch.clientY;ghost.style.left=x+'px';ghost.style.top=y+'px';ghost.style.transform='translate(-50%,-50%) scale(1.1)';let el=document.elementFromPoint(x,y);document.querySelectorAll('.cell.preview').forEach(c=>c.classList.remove('preview'));previewPos=null;if(el&&el.classList.contains('cell')&&sel){let dropR=parseInt(el.dataset.r),dropC=parseInt(el.dataset.c);for(let sy=0;sy<sel.s.length;sy++){for(let sx=0;sx<sel.s[sy].length;sx++){if(!sel.s[sy][sx])continue;let tryR=dropR-sy,tryC=dropC-sx;if(canPlaceAt(tryR,tryC,sel.s)){previewPos={r:tryR,c:tryC};for(let py=0;py<sel.s.length;py++)for(let px=0;px<sel.s[py].length;px++)if(sel.s[py][px]){let rr=tryR+py,cc=tryC+px;let cell=document.querySelector(`.cell[data-r="${rr}"][data-c="${cc}"]`);if(cell)cell.classList.add('preview');}return;}}}}}
+function onEnd(e){document.removeEventListener('touchmove',onMove);document.removeEventListener('touchend',onEnd);document.removeEventListener('mousemove',onMove);document.removeEventListener('mouseup',onEnd);document.querySelectorAll('.piece').forEach(d=>d.classList.remove('dragging'));document.querySelectorAll('.cell.preview').forEach(c=>c.classList.remove('preview'));if(!sel)return;let touch=e.changedTouches?e.changedTouches[0]:e;let el=document.elementFromPoint(touch.clientX,touch.clientY);if(ghost)ghost.style.display='none';if(previewPos){placeAt(previewPos.r,previewPos.c);}else{if(el&&el.classList.contains('cell')){speak("Dili pwede diha bai!");}}previewPos=null;}
+function canPlaceAt(r,c,sh){if(r<0||c<0)return false;for(let y=0;y<sh.length;y++)for(let x=0;x<sh[y].length;x++)if(sh[y][x]){if(r+y>=8||c+x>=8||board[r+y][c+x])return false;}return true;}
+function placeAt(r,c){if(!sel)return;for(let y=0;y<sel.s.length;y++)for(let x=0;x<sel.s[y].length;x++)if(sel.s[y][x])board[r+y][c+x]=sel.f;score+=10;moves++;pieces=pieces.filter(p=>p.id!=sel.id);let el=document.getElementById(sel.id);if(el)el.remove();sel=null;let cleared=0;for(let rr=0;rr<8;rr++)if(board[rr].every(v=>v)){board[rr]=Array(8).fill(null);cleared++;}for(let cc=0;cc<8;cc++)if(board.every(row=>row[cc])){for(let rr=0;rr<8;rr++)board[rr][cc]=null;cleared++;}if(cleared>0){score+=cleared*80;speak(msgs[Math.min(cleared-1,msgs.length-1)]);}draw();document.getElementById('sc').textContent=score;document.getElementById('moves').textContent=moves;if(score>best){best=score;localStorage.setItem('fruitBest',best);document.getElementById('best').textContent=best;}if(pieces.length==0)genPieces();else checkGameOver();}
+function checkGameOver(){if(pieces.length==0)return;for(let p of pieces){for(let r=0;r<8;r++)for(let c=0;c<8;c++)if(canPlaceAt(r,c,p.s))return;}setTimeout(()=>{document.getElementById('finalScore').textContent=score;document.getElementById('gameOver').classList.add('show');speak("Game Over!");},400);}
+</script>
+</body>
+</html>
